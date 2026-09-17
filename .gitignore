@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# Env & secrets（.env.example 除外）
+.env
+!.env.example
+
+# Data & media
+data/
+*.mp4
+*.mp3
+*.wav
+
+# Logs
+*.log
+
+# Claude Code
+.claude/
+
+# IDE
+.idea/
+.vscode/

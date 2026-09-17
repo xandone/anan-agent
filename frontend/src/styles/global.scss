@@ -1,0 +1,271 @@
+// ============================================
+// anan-agent 设计令牌
+// 题材：深夜刷屏的墨色 × 抖音霓虹青/品红
+// ============================================
+
+:root {
+  --ink: #0e0e12;
+  --ink-deep: #0a0a0d;
+  --panel: #16161c;
+  --panel-raise: #1c1c24;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  --neon: #25f4ee;   // 主操作 / 链接 / 运行中
+  --neon-dim: rgba(37, 244, 238, 0.14);
+  --hot: #fe2c55;    // 热度 / 点赞 / 警示
+  --hot-dim: rgba(254, 44, 85, 0.14);
+
+  --text: #e8e8ec;
+  --text-2: #8a8a94;
+  --text-3: #5a5a64;
+
+  --on-neon: #0a0a0d;  // 霓虹色块上的文字
+  --glow-hot: rgba(254, 44, 85, 0.05);
+  --glow-neon: rgba(37, 244, 238, 0.05);
+
+  --font-display: 'Space Grotesk', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-body: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  --radius: 10px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+// 白天主题：纸白底 + 深青（浅底上霓虹青不可读，加深为墨青）
+:root[data-theme='light'] {
+  --ink: #f4f5f7;
+  --ink-deep: #eceef1;
+  --panel: #ffffff;
+  --panel-raise: #f7f8fa;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: rgba(0, 0, 0, 0.16);
+
+  --neon: #0d9488;
+  --neon-dim: rgba(13, 148, 136, 0.1);
+  --hot: #e62a50;
+  --hot-dim: rgba(230, 42, 80, 0.08);
+
+  --text: #1a1a20;
+  --text-2: #5a5a64;
+  --text-3: #9a9aa4;
+
+  --on-neon: #ffffff;
+  --glow-hot: rgba(230, 42, 80, 0.04);
+  --glow-neon: rgba(13, 148, 136, 0.05);
+}
+
+// ---------- 基础 ----------
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+// 主题切换时的平滑过渡
+.rail,
+.ant-card,
+.collect-card,
+.persona,
+.pipeline,
+.composer,
+.bubble,
+.field-input,
+.ant-table,
+.ant-table .ant-table-thead > tr > th,
+.ant-table .ant-table-tbody > tr > td {
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease;
+}
+
+// 背景：极淡的双色氛围光，呼应霓虹主题但不喧宾夺主
+#app {
+  min-height: 100vh;
+  background:
+    radial-gradient(600px 400px at 85% -5%, var(--glow-hot), transparent 60%),
+    radial-gradient(700px 500px at 10% 110%, var(--glow-neon), transparent 60%),
+    var(--ink);
+}
+
+::selection {
+  background: var(--neon-dim);
+  color: var(--neon);
+}
+
+// 滚动条
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+  &:hover {
+    background: var(--text-3);
+  }
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+// ---------- 排版 ----------
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.mono,
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+// ---------- Ant Design Vue 深色覆盖 ----------
+
+.ant-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+
+  .ant-card-head {
+    border-bottom: 1px solid var(--line);
+    min-height: unset;
+    padding: 16px 20px;
+
+    .ant-card-head-title {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 600;
+      padding: 0;
+    }
+    .ant-card-extra {
+      padding: 0;
+    }
+  }
+  .ant-card-body {
+    padding: 20px;
+  }
+}
+
+.ant-table {
+  .ant-table-thead > tr > th {
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
+  }
+  .ant-table-tbody > tr > td {
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+.ant-btn-primary {
+  font-weight: 600;
+  box-shadow: 0 0 0 rgba(37, 244, 238, 0);
+  transition: box-shadow 0.25s var(--ease-out), transform 0.15s var(--ease-out);
+
+  &:hover {
+    box-shadow: 0 4px 24px rgba(37, 244, 238, 0.35);
+  }
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+.ant-input,
+.ant-input-number,
+.ant-select .ant-select-selector,
+.ant-input-affix-wrapper {
+  transition: border-color 0.2s, box-shadow 0.2s !important;
+}
+
+// ---------- 通用动效 ----------
+
+// 页面编排入场：各区块依次浮现（一次性）
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  animation: rise-in 0.5s var(--ease-out) both;
+}
+.rise-1 { animation-delay: 0.05s; }
+.rise-2 { animation-delay: 0.15s; }
+.rise-3 { animation-delay: 0.25s; }
+
+// 卡片交互：悬停浮起
+.lift {
+  transition: transform 0.3s var(--ease-out), border-color 0.3s var(--ease-out),
+    box-shadow 0.3s var(--ease-out);
+
+  &:hover {
+    transform: translateY(-3px);
+    border-color: var(--line-strong);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+}
+
+// 运行中脉冲
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 244, 238, 0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(37, 244, 238, 0); }
+}
+.pulse {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+// 降级：尊重系统减弱动效设置
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+// 键盘焦点可见
+:focus-visible {
+  outline: 2px solid var(--neon);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+// ---------- 主题切换：圆形扩散 ----------
+// 关掉视图过渡默认的交叉淡入淡出，由 JS 里的 clip-path 圆形动画接管
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+// 新主题快照盖在旧快照上面，圆从新快照里"长"出来
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2147483646;
+}
+
+// 圆形扩散期间暂停逐元素的颜色过渡，避免和快照动画叠加打架
+.theme-animating,
+.theme-animating * {
+  transition: none !important;
+}

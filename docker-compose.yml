@@ -1,0 +1,19 @@
+version: "3.8"
+
+# 说明：
+# - PostgreSQL 使用本地安装（localhost:5432, pgvector 0.8.1 已就绪），不在 compose 中
+# - RapidOCRAPI 已在本地单独部署，这里不重复起服务
+
+services:
+  tiktok-downloader:
+    image: joeanamier/tiktok-downloader:latest
+    container_name: anan-tiktok-downloader
+    ports:
+      - "5555:5555"
+    volumes:
+      - tt-data:/app/Volume
+    # 以 Web API 模式运行，后端通过 HTTP 调用
+    restart: unless-stopped
+
+volumes:
+  tt-data:
