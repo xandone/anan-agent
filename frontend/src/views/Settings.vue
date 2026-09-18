@@ -66,9 +66,12 @@ const groups = [
           <input
             v-model="form[f.key]"
             class="field-input"
-            :placeholder="String(config[f.key] ?? '')"
+            :placeholder="`请填写${f.label}`"
             :type="f.key.includes('key') ? 'password' : 'text'"
+            :name="`cfg-${f.key}`"
+            :autocomplete="f.key.includes('key') ? 'new-password' : 'off'"
           />
+          <p class="field-current">当前：{{ config[f.key] || '未配置' }}</p>
         </div>
       </section>
 
@@ -112,6 +115,14 @@ const groups = [
     color: var(--text-2);
     margin-bottom: 6px;
   }
+}
+
+.field-current {
+  margin: 5px 0 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-family: var(--font-display);
+  word-break: break-all;
 }
 
 .field-input {
