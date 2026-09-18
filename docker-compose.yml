@@ -1,16 +1,18 @@
 # anan-agent 基础设施层：数据库 / OCR / 采集器
+# 端口统一分配在 9000 段，与本机其他服务（如本地 PG 5432）隔离：
+#   9001 = postgres | 9002 = tiktok-downloader | 9003 = rapidocr
 # 后端、前端开发期在本地跑（见 README），生产环境再整体容器化。
 
 services:
   postgres:
-    image: pgvector/pgvector:pg18   # 自带 pgvector 扩展，与本地 PG18 对齐
+    image: pgvector/pgvector:pg18   # 自带 pgvector 扩展
     container_name: anan-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: "123456"   # 与 backend/.env 的 DATABASE_URL 保持一致
       POSTGRES_DB: anan_agent
     ports:
-      - "5432:5432"
+      - "9001:5432"                 # 宿主 9001 → 容器 5432（避开本地 PG）
     volumes:
       - pgdata:/var/lib/postgresql   # PG18 镜像要求挂在父目录（官方变更）
     healthcheck:
@@ -31,7 +33,7 @@ services:
     image: joeanamier/tiktok-downloader:latest
     container_name: anan-tiktok-downloader
     ports:
-      - "5555:5555"
+      - "9002:5555"                 # 宿主 9002 → 容器 5555，API 文档: http://localhost:9002/docs
     volumes:
       - tt-data:/app/Volume
     # 以 Web API 模式运行，后端通过 HTTP 调用

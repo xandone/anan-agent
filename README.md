@@ -25,7 +25,7 @@ dev.bat         # 或 CMD / 双击
 ```
 
 > TikTokDownloader 首次启动需交互配置（语言/免责声明/运行模式），本仓库已
-> 通过 Volume 持久化预置为 Web API 模式（5555）。采集抖音数据前需先写入
+> 通过 Volume 持久化预置为 Web API 模式（宿主机 9002 → 容器 5555）。采集抖音数据前需先写入
 > Cookie（参考其 Wiki 的 Cookie 获取教程）。
 
 首次运行需先装依赖：
