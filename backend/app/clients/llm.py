@@ -17,6 +17,7 @@ def chat(messages: list[dict], temperature: float = 0.7, **kwargs) -> str:
         model=s.llm_model,
         messages=messages,
         temperature=temperature,
+        extra_body={"thinking": {"type": "enabled" if s.llm_thinking else "disabled"}},
         **kwargs,
     )
     return resp.choices[0].message.content
@@ -38,19 +39,25 @@ def create_stream(messages: list[dict], temperature: float = 0.7):
         temperature=temperature,
         stream=True,
         stream_options={"include_usage": True},  # 端点不支持时 usage 为空，不影响流
+        extra_body={"thinking": {"type": "enabled" if s.llm_thinking else "disabled"}},
     )
 
 
 def parse_chunk(chunk) -> tuple[str, object] | None:
-    """解析流块，返回 ("delta", 文本) / ("usage", dict) / None。"""
+    """解析流块，返回 ("delta", 文本) / ("reasoning", 思考文本) / ("usage", dict) / None。"""
     if getattr(chunk, "usage", None):
         return ("usage", {
             "prompt_tokens": chunk.usage.prompt_tokens,
             "completion_tokens": chunk.usage.completion_tokens,
             "total_tokens": chunk.usage.total_tokens,
         })
-    if chunk.choices and chunk.choices[0].delta.content:
-        return ("delta", chunk.choices[0].delta.content)
+    if chunk.choices:
+        delta = chunk.choices[0].delta
+        reasoning = getattr(delta, "reasoning_content", None)
+        if reasoning:
+            return ("reasoning", reasoning)
+        if delta.content:
+            return ("delta", delta.content)
     return None
 
 

@@ -5,19 +5,20 @@ import { api } from '@/api/client'
 
 const config = ref({})
 const form = reactive({})
+const thinking = ref(false)
 const saving = ref(false)
 
 async function load() {
   config.value = await api.get('/config')
+  thinking.value = !!config.value.llm_thinking
   Object.keys(form).forEach((k) => delete form[k]) // 编辑表单留空，只提交改过的字段
 }
 
 async function save() {
   saving.value = true
   try {
-    const updates = {}
+    const updates = { llm_thinking: thinking.value }
     Object.keys(form).forEach((k) => form[k] && (updates[k] = form[k]))
-    if (!Object.keys(updates).length) return message.info('没有修改')
     await api.put('/config', updates)
     message.success('配置已保存并重载')
     load()
@@ -68,6 +69,17 @@ const groups = [
         </div>
       </section>
 
+      <section class="group">
+        <h3>行为</h3>
+        <label class="switch-row">
+          <a-switch v-model:checked="thinking" />
+          <span>
+            思考模式
+            <small>开启后模型先输出思考链，回答更深入但首字显著变慢</small>
+          </span>
+        </label>
+      </section>
+
       <a-button type="primary" size="large" :loading="saving" @click="save">
         保存并重载
       </a-button>
@@ -116,6 +128,24 @@ const groups = [
   color: var(--text-3);
   font-family: var(--font-display);
   word-break: break-all;
+}
+
+.switch-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+
+  span {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  small {
+    display: block;
+    color: var(--text-3);
+    font-size: 12px;
+  }
 }
 
 .field-input {

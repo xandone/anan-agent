@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     llm_api_url: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
+    llm_thinking: bool = False  # DeepSeek V4 思考模式（开启后先输出思考链，首字变慢）
 
     # Embedding
     embedding_api_url: str = ""

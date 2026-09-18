@@ -109,7 +109,7 @@ async function streamAnswer(question) {
   abortCtrl = new AbortController()
 
   // 注意：必须用 reactive 包装，直接改普通对象不会触发 Vue 更新
-  const agentMsg = reactive({ role: 'agent', text: '', meta: null, streaming: true })
+  const agentMsg = reactive({ role: 'agent', text: '', reasoning: '', meta: null, streaming: true })
   messages.value.push(agentMsg)
   scrollToBottom()
 
@@ -150,6 +150,9 @@ async function streamAnswer(question) {
           if (!conversationId.value) conversationId.value = data.conversation_id
         } else if (data.type === 'delta') {
           agentMsg.text += data.text
+          scrollToBottom()
+        } else if (data.type === 'reasoning') {
+          agentMsg.reasoning += data.text
           scrollToBottom()
         } else if (data.type === 'done') {
           stats.duration_ms = data.duration_ms
@@ -292,13 +295,18 @@ onMounted(async () => {
             <div class="msg-col">
               <div class="bubble">
                 <!-- 流式等待首字时，气泡内直接显示三点律动，不再单独渲染第二个气泡 -->
-                <div v-if="m.streaming && !m.text" class="typing"><span /><span /><span /></div>
+                <div v-if="m.streaming && !m.text && !m.reasoning" class="typing"><span /><span /><span /></div>
+                <!-- 思考过程：可折叠，默认在生成中展开、完成后收起 -->
+                <details v-if="m.reasoning" class="reasoning" :open="m.streaming && !m.text">
+                  <summary>思考过程</summary>
+                  <div class="reasoning-text">{{ m.reasoning }}</div>
+                </details>
                 <!-- 用户消息纯文本，智能体消息渲染 Markdown -->
-                <template v-else>
+                <template v-if="m.text">
                   <div v-if="m.role === 'agent'" class="text md" v-html="renderMd(m.text)" />
                   <div v-else class="text">{{ m.text }}</div>
                 </template>
-                <span v-if="m.streaming && m.text" class="cursor" />
+                <span v-if="m.streaming && (m.text || m.reasoning)" class="cursor" />
                 <div v-if="m.meta" class="meta">{{ m.meta }}</div>
               </div>
               <!-- 操作栏：固定在气泡下方 -->
@@ -679,6 +687,41 @@ onMounted(async () => {
   &:disabled { opacity: 0.4; cursor: not-allowed; }
 
   &.copied { color: var(--neon); }
+}
+
+// 思考过程：弱化的折叠块
+.reasoning {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--line-strong);
+  border-radius: 0 8px 8px 0;
+  background: rgba(127, 127, 127, 0.06);
+  font-size: 12.5px;
+  color: var(--text-2);
+
+  summary {
+    cursor: pointer;
+    color: var(--text-3);
+    font-size: 12px;
+    user-select: none;
+    list-style: none;
+
+    &::before {
+      content: '▸ ';
+    }
+  }
+
+  &[open] summary::before {
+    content: '▾ ';
+  }
+
+  .reasoning-text {
+    margin-top: 6px;
+    white-space: pre-wrap;
+    line-height: 1.6;
+    max-height: 240px;
+    overflow-y: auto;
+  }
 }
 
 // Markdown 渲染排版

@@ -14,6 +14,7 @@ def show_config():
         "llm_api_url": s.llm_api_url,
         "llm_model": s.llm_model,
         "llm_api_key": _mask(s.llm_api_key),
+        "llm_thinking": s.llm_thinking,
         "embedding_api_url": s.embedding_api_url,
         "embedding_model": s.embedding_model,
         "embedding_dim": s.embedding_dim,
@@ -33,6 +34,7 @@ class ConfigUpdateReq(BaseModel):
     llm_api_url: str | None = None
     llm_api_key: str | None = None
     llm_model: str | None = None
+    llm_thinking: bool | None = None
     embedding_api_url: str | None = None
     embedding_api_key: str | None = None
     embedding_model: str | None = None

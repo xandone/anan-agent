@@ -147,6 +147,9 @@ def chat_stream(req: ChatStreamReq, db: Session = Depends(get_db)):
                 if kind == "delta":
                     full_text += payload
                     yield _sse({"type": "delta", "text": payload})
+                elif kind == "reasoning":
+                    # 思考过程：只转发给前端展示，不入库不进正文
+                    yield _sse({"type": "reasoning", "text": payload})
                 elif kind == "usage":
                     usage = payload
         except (asyncio.CancelledError, GeneratorExit):
