@@ -3,8 +3,11 @@ import { message } from 'ant-design-vue'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { api } from '@/api/client'
 import { token } from '@/composables/auth'
+
+const route = useRoute()
 
 const md = new MarkdownIt({ linkify: true, breaks: true })
 const renderMd = (t) => DOMPurify.sanitize(md.render(t || ''))
@@ -245,13 +248,20 @@ function regenerate(idx) {
   streamAnswer(question)
 }
 
-// 智能体列表标识色
-const hues = ['#25f4ee', '#fe2c55', '#b18cff', '#ffb020', '#3ddc84', '#ff7a45']
+// 智能体列表标识色：10 色按色环均匀分布（与智能体页一致）
+const hues = [
+  '#25f4ee', '#fe2c55', '#c77dff', '#ffd84a', '#3ddc84',
+  '#3fb8ff', '#ff6ec7', '#a8e04a', '#ff9e4a', '#7c8cff',
+]
 const hueOf = (i) => hues[i % hues.length]
 
 onMounted(async () => {
   categories.value = await api.get('/categories')
-  const first = categories.value.find((c) => c.enabled)
+  // 从智能体页跳转时带 ?agent=slug，自动选中对应智能体
+  const fromQuery = categories.value.find(
+    (c) => c.enabled && c.slug === route.query.agent,
+  )
+  const first = fromQuery || categories.value.find((c) => c.enabled)
   if (first) selectedSlug.value = first.slug
   loadConversations()
 })
@@ -604,7 +614,19 @@ onMounted(async () => {
   padding: 64px 24px;
   color: var(--text-2);
 
-  .welcome-sigil { font-size: 28px; color: var(--neon); margin-bottom: 12px; }
+  .welcome-sigil {
+    font-size: 28px;
+    color: var(--neon);
+    margin-bottom: 12px;
+    animation: sigil-breathe 2.4s ease-in-out infinite;
+  }
+
+  // 透明度呼吸：合成器属性动画，几乎无性能开销；
+  // 仅在空会话时挂载，聊天中随 welcome 块从 DOM 移除
+  @keyframes sigil-breathe {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 1; }
+  }
   .welcome-title {
     font-family: var(--font-display);
     font-size: 18px;

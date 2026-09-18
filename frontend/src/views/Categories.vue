@@ -9,8 +9,19 @@ const editing = ref(null)
 const saving = ref(false)
 const form = reactive({ name: '', slug: '', description: '', system_prompt: '', enabled: true })
 
-// 每个人格卡片的标识色，按顺序轮换
-const hues = ['#25f4ee', '#fe2c55', '#b18cff', '#ffb020', '#3ddc84', '#ff7a45']
+// 每个人格卡片的标识色：10 色按色环均匀分布，互不撞色
+const hues = [
+  '#25f4ee', // 青
+  '#fe2c55', // 品红
+  '#c77dff', // 紫
+  '#ffd84a', // 明黄
+  '#3ddc84', // 翠绿
+  '#3fb8ff', // 天蓝
+  '#ff6ec7', // 樱花粉
+  '#a8e04a', // 青柠
+  '#ff9e4a', // 橙
+  '#7c8cff', // 靛蓝
+]
 const hueOf = (i) => hues[i % hues.length]
 
 async function load() {
@@ -67,7 +78,7 @@ onMounted(load)
           <div class="persona-stats">
             <span><b class="num">{{ c.video_count }}</b> 视频</span>
             <span><b class="num">{{ c.corpus_count }}</b> 语料</span>
-            <router-link class="try" to="/chat" @click.stop>对话 →</router-link>
+            <router-link class="try" :to="{ path: '/chat', query: { agent: c.slug } }" @click.stop>对话 →</router-link>
           </div>
         </div>
       </div>
