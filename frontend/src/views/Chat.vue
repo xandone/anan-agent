@@ -15,6 +15,11 @@ const conversations = ref([])
 const conversationId = ref(null)
 const input = ref('')
 const sending = ref(false)
+let abortCtrl = null // SSE 请求的中断控制器
+
+function stopSending() {
+  abortCtrl?.abort()
+}
 const messages = ref([]) // { role, text, meta?, streaming? }
 const scrollBox = ref(null)
 
@@ -93,9 +98,16 @@ async function send() {
   const question = input.value.trim()
   if (!question || !selectedSlug.value || sending.value) return
   input.value = ''
-  sending.value = true
-
+  await nextTick()
+  autoResize() // 清空后收回输入框高度
   messages.value.push({ role: 'user', text: question })
+  streamAnswer(question)
+}
+
+async function streamAnswer(question) {
+  sending.value = true
+  abortCtrl = new AbortController()
+
   // 注意：必须用 reactive 包装，直接改普通对象不会触发 Vue 更新
   const agentMsg = reactive({ role: 'agent', text: '', meta: null, streaming: true })
   messages.value.push(agentMsg)
@@ -114,6 +126,7 @@ async function send() {
         question,
         conversation_id: conversationId.value,
       }),
+      signal: abortCtrl.signal,
     })
     if (!resp.ok) throw new Error((await resp.json()).detail || resp.statusText)
 
@@ -151,19 +164,82 @@ async function send() {
     if (stats.duration_ms == null) stats.duration_ms = Math.round(performance.now() - t0)
     agentMsg.meta = buildMeta(stats)
   } catch (e) {
-    agentMsg.text = agentMsg.text || `出错了：${e.message || e}`
+    if (e.name === 'AbortError') {
+      // 用户主动停止：保留已生成部分，并通知后端落库（服务端不一定能感知断连）
+      if (!agentMsg.text) agentMsg.text = '（已停止生成）'
+      agentMsg.meta = buildMeta({ duration_ms: Math.round(performance.now() - t0) }) + ' · 已停止'
+      if (conversationId.value && agentMsg.text.trim() && agentMsg.text !== '（已停止生成）') {
+        api.post('/chat/save', {
+          conversation_id: conversationId.value,
+          content: agentMsg.text,
+          duration_ms: Math.round(performance.now() - t0),
+        }).catch(() => {}) // 落库失败不影响界面
+      }
+    } else {
+      agentMsg.text = agentMsg.text || `出错了：${e.message || e}`
+    }
   } finally {
     agentMsg.streaming = false
     sending.value = false
+    abortCtrl = null
     scrollToBottom()
     loadConversations()
   }
+}
+
+// ---------- 输入框自适应高度 ----------
+
+const composerInput = ref(null)
+const COMPOSER_MAX_HEIGHT = 160
+
+function autoResize() {
+  const el = composerInput.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`
 }
 
 const fmtTime = (iso) => {
   const d = new Date(iso)
   const sameDay = d.toDateString() === new Date().toDateString()
   return sameDay ? d.toTimeString().slice(0, 5) : `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+// ---------- 复制 ----------
+
+const copiedIdx = ref(-1)
+let copyTimer = null
+
+async function copyText(text, idx) {
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    // 剪贴板 API 不可用时的降级（如非安全上下文）
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  copiedIdx.value = idx
+  clearTimeout(copyTimer)
+  copyTimer = setTimeout(() => { copiedIdx.value = -1 }, 1500)
+}
+
+// ---------- 重新生成 ----------
+
+function regenerate(idx) {
+  if (sending.value) return
+  // 找到这条回答对应的用户提问
+  let qIdx = idx - 1
+  while (qIdx >= 0 && messages.value[qIdx].role !== 'user') qIdx--
+  if (qIdx < 0) return
+  const question = messages.value[qIdx].text
+  messages.value.splice(idx, 1) // 移除旧回答，重新流式生成
+  streamAnswer(question)
 }
 
 // 智能体列表标识色
@@ -213,31 +289,54 @@ onMounted(async () => {
 
         <transition-group name="msg">
           <div v-for="(m, i) in messages" :key="i" class="msg" :class="m.role">
-            <div class="bubble">
-              <!-- 流式等待首字时，气泡内直接显示三点律动，不再单独渲染第二个气泡 -->
-              <div v-if="m.streaming && !m.text" class="typing"><span /><span /><span /></div>
-              <!-- 用户消息纯文本，智能体消息渲染 Markdown -->
-              <template v-else>
-                <div v-if="m.role === 'agent'" class="text md" v-html="renderMd(m.text)" />
-                <div v-else class="text">{{ m.text }}</div>
-              </template>
-              <span v-if="m.streaming && m.text" class="cursor" />
-              <div v-if="m.meta" class="meta">{{ m.meta }}</div>
+            <div class="msg-col">
+              <div class="bubble">
+                <!-- 流式等待首字时，气泡内直接显示三点律动，不再单独渲染第二个气泡 -->
+                <div v-if="m.streaming && !m.text" class="typing"><span /><span /><span /></div>
+                <!-- 用户消息纯文本，智能体消息渲染 Markdown -->
+                <template v-else>
+                  <div v-if="m.role === 'agent'" class="text md" v-html="renderMd(m.text)" />
+                  <div v-else class="text">{{ m.text }}</div>
+                </template>
+                <span v-if="m.streaming && m.text" class="cursor" />
+                <div v-if="m.meta" class="meta">{{ m.meta }}</div>
+              </div>
+              <!-- 操作栏：固定在气泡下方 -->
+              <div v-if="m.text && !m.streaming" class="actions">
+                <button class="action-btn" :class="{ copied: copiedIdx === i }"
+                  @click="copyText(m.text, i)">
+                  {{ copiedIdx === i ? '✓ 已复制' : '⧉ 复制' }}
+                </button>
+                <button v-if="m.role === 'agent'" class="action-btn"
+                  :disabled="sending" @click="regenerate(i)">
+                  ↻ 重新生成
+                </button>
+              </div>
             </div>
           </div>
         </transition-group>
       </div>
 
       <div class="composer">
-        <input
+        <textarea
+          ref="composerInput"
           v-model="input"
           class="composer-input"
-          :placeholder="`问点什么，${current?.name || ''}在听…`"
+          rows="1"
+          :placeholder="`问点什么，${current?.name || ''}在听…（Enter 发送，Shift+Enter 换行）`"
           :disabled="sending || !selectedSlug"
-          @keyup.enter="send"
+          @keydown.enter.exact.prevent="send"
+          @input="autoResize"
         />
-        <button class="composer-send" :disabled="sending || !input.trim()" @click="send">
-          发送
+        <button
+          class="composer-send"
+          :class="{ stopping: sending }"
+          :disabled="!sending && !input.trim()"
+          :title="sending ? '停止生成' : '发送'"
+          :aria-label="sending ? '停止生成' : '发送'"
+          @click="sending ? stopSending() : send()"
+        >
+          {{ sending ? '■' : '↑' }}
         </button>
       </div>
     </section>
@@ -515,8 +614,17 @@ onMounted(async () => {
   &.user { justify-content: flex-end; }
 }
 
-.bubble {
+.msg-col {
   max-width: 78%;
+  display: flex;
+  flex-direction: column;
+
+  .msg.user & { align-items: flex-end; }
+  .msg.agent & { align-items: flex-start; }
+}
+
+.bubble {
+  max-width: 100%;
   padding: 12px 16px;
   border-radius: 14px;
   font-size: 14px;
@@ -544,6 +652,33 @@ onMounted(async () => {
     color: var(--text-3);
     font-family: var(--font-display);
   }
+}
+
+// 操作栏：固定在气泡下方
+.actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.action-btn {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, transform 0.15s var(--ease-out);
+
+  &:hover:not(:disabled) {
+    color: var(--neon);
+    background: var(--neon-dim);
+  }
+  &:active:not(:disabled) { transform: scale(0.94); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  &.copied { color: var(--neon); }
 }
 
 // Markdown 渲染排版
@@ -586,6 +721,7 @@ onMounted(async () => {
   :deep(hr) { border: none; border-top: 1px solid var(--line); margin: 0.8em 0; }
 }
 
+// 复制按钮旧样式已由 .action-btn 替代
 // 流式输出光标
 .cursor {
   display: inline-block;
@@ -635,6 +771,7 @@ onMounted(async () => {
 // 输入条：与消息流同宽居中
 .composer {
   display: flex;
+  align-items: center;
   gap: 10px;
   width: 100%;
   max-width: 760px;
@@ -656,23 +793,34 @@ onMounted(async () => {
   background: transparent;
   border: none;
   outline: none;
+  resize: none;
   color: var(--text);
   font-size: 14px;
+  line-height: 1.6;
+  // 上下各 7px 内边距：单行时与右侧发送按钮等高，文字视觉居中
+  padding: 7px 0;
   font-family: var(--font-body);
+  max-height: 160px;
+  overflow-y: auto;
 
   &::placeholder { color: var(--text-3); }
 }
 
 .composer-send {
-  padding: 8px 22px;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: none;
-  border-radius: 9px;
+  border-radius: 50%;
   background: var(--neon);
   color: var(--on-neon);
-  font-weight: 600;
-  font-size: 14px;
+  font-size: 16px;
+  line-height: 1;
   cursor: pointer;
-  transition: transform 0.15s var(--ease-out), box-shadow 0.25s, opacity 0.2s;
+  transition: transform 0.15s var(--ease-out), box-shadow 0.25s, opacity 0.2s, background 0.25s;
 
   &:hover:not(:disabled) {
     box-shadow: 0 4px 20px var(--neon-dim);
@@ -683,6 +831,15 @@ onMounted(async () => {
   &:disabled {
     opacity: 0.35;
     cursor: not-allowed;
+  }
+
+  // 生成中：切换为停止按钮
+  &.stopping {
+    background: var(--hot);
+
+    &:hover {
+      box-shadow: 0 4px 20px var(--hot-dim);
+    }
   }
 }
 

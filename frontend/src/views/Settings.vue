@@ -41,13 +41,6 @@ const groups = [
       { key: 'embedding_model', label: 'Embedding 模型' },
     ],
   },
-  {
-    title: '外部服务',
-    fields: [
-      { key: 'ocr_api_url', label: 'OCR 服务地址' },
-      { key: 'douyin_api_url', label: 'TikTokDownloader 地址' },
-    ],
-  },
 ]
 </script>
 

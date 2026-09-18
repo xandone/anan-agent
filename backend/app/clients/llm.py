@@ -29,24 +29,34 @@ def chat_json(messages: list[dict], temperature: float = 0.0) -> dict:
     return json.loads(content)
 
 
-def chat_stream(messages: list[dict], temperature: float = 0.7):
-    """流式对话。逐块产出 ("delta", 文本)，最后产出 ("usage", dict|None)。"""
+def create_stream(messages: list[dict], temperature: float = 0.7):
+    """创建原始流对象（供异步消费方自行迭代，便于中断）。"""
     s = get_settings()
-    stream = _client().chat.completions.create(
+    return _client().chat.completions.create(
         model=s.llm_model,
         messages=messages,
         temperature=temperature,
         stream=True,
         stream_options={"include_usage": True},  # 端点不支持时 usage 为空，不影响流
     )
-    usage = None
-    for chunk in stream:
-        if getattr(chunk, "usage", None):
-            usage = {
-                "prompt_tokens": chunk.usage.prompt_tokens,
-                "completion_tokens": chunk.usage.completion_tokens,
-                "total_tokens": chunk.usage.total_tokens,
-            }
-        if chunk.choices and chunk.choices[0].delta.content:
-            yield ("delta", chunk.choices[0].delta.content)
-    yield ("usage", usage)
+
+
+def parse_chunk(chunk) -> tuple[str, object] | None:
+    """解析流块，返回 ("delta", 文本) / ("usage", dict) / None。"""
+    if getattr(chunk, "usage", None):
+        return ("usage", {
+            "prompt_tokens": chunk.usage.prompt_tokens,
+            "completion_tokens": chunk.usage.completion_tokens,
+            "total_tokens": chunk.usage.total_tokens,
+        })
+    if chunk.choices and chunk.choices[0].delta.content:
+        return ("delta", chunk.choices[0].delta.content)
+    return None
+
+
+def chat_stream(messages: list[dict], temperature: float = 0.7):
+    """流式对话（同步版）。逐块产出 ("delta", 文本) / ("usage", dict)。"""
+    for chunk in create_stream(messages, temperature):
+        item = parse_chunk(chunk)
+        if item:
+            yield item
