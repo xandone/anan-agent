@@ -102,7 +102,7 @@ onMounted(load)
         <a-row :gutter="16">
           <a-col :span="12">
             <a-form-item label="名称" required>
-              <a-input v-model:value="form.name" placeholder="如：诗歌类" />
+              <a-input v-model:value="form.name" placeholder="如：诗歌智能体" />
             </a-form-item>
           </a-col>
           <a-col :span="12">

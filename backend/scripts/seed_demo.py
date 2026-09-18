@@ -3,7 +3,7 @@
 用法：cd backend && ./.venv/Scripts/python.exe scripts/seed_demo.py
 
 场景覆盖：
-- 诗歌类/阴阳怪气类/科普类：完整走完流水线的 indexed 数据（含语料向量，可对话检索）
+- 诗歌智能体/阴阳怪气智能体/科普智能体：完整走完流水线的 indexed 数据（含语料向量，可对话检索）
 - classified / asr_done / downloaded / pending：卡在流水线各阶段的任务
 - failed × 2：一个 ASR 失败（演示 OCR 兜底按钮）、一个下载失败
 - 未分类、人工改标、不同来源（热榜/达人/搜索/手动）、高低点赞量

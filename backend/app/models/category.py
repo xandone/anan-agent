@@ -20,7 +20,7 @@ class Category(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, comment="主键")
     name: Mapped[str] = mapped_column(String(64), unique=True,
-                                      comment="类别名称，如：诗歌类、阴阳怪气类、科普类")
+                                      comment="类别名称，如：诗歌智能体、阴阳怪气智能体、科普智能体")
     slug: Mapped[str] = mapped_column(String(64), unique=True, index=True,
                                       comment="类别标识（对话路由、API 引用用）")
     description: Mapped[str | None] = mapped_column(Text,
