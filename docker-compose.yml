@@ -1,10 +1,32 @@
-version: "3.8"
-
-# 说明：
-# - PostgreSQL 使用本地安装（localhost:5432, pgvector 0.8.1 已就绪），不在 compose 中
-# - RapidOCRAPI 已在本地单独部署，这里不重复起服务
+# anan-agent 基础设施层：数据库 / OCR / 采集器
+# 后端、前端开发期在本地跑（见 README），生产环境再整体容器化。
 
 services:
+  postgres:
+    image: pgvector/pgvector:pg18   # 自带 pgvector 扩展，与本地 PG18 对齐
+    container_name: anan-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123456"   # 与 backend/.env 的 DATABASE_URL 保持一致
+      POSTGRES_DB: anan_agent
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql   # PG18 镜像要求挂在父目录（官方变更）
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d anan_agent"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  rapidocr:
+    image: rapidocr-api:local       # 本地构建的镜像（RapidAI/RapidOCRAPI）
+    container_name: anan-rapidocr
+    ports:
+      - "9003:9003"                 # API 文档: http://localhost:9003/docs
+    restart: unless-stopped
+
   tiktok-downloader:
     image: joeanamier/tiktok-downloader:latest
     container_name: anan-tiktok-downloader
@@ -16,4 +38,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  pgdata:
   tt-data:

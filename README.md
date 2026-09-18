@@ -16,13 +16,17 @@
 # 0. 准备配置（首次）
 cp backend/.env.example backend/.env   # 填入 LLM/Embedding/数据库等配置
 
-# 1. 启动 TikTokDownloader（PostgreSQL 用本地安装的，RapidOCRAPI 已部署）
+# 1. 启动基础设施（PostgreSQL+pgvector / RapidOCR / TikTokDownloader）
 docker compose up -d
 
 # 2. 一键启动前后端（开发模式）
 ./dev.sh        # Git Bash
 dev.bat         # 或 CMD / 双击
 ```
+
+> TikTokDownloader 首次启动需交互配置（语言/免责声明/运行模式），本仓库已
+> 通过 Volume 持久化预置为 Web API 模式（5555）。采集抖音数据前需先写入
+> Cookie（参考其 Wiki 的 Cookie 获取教程）。
 
 首次运行需先装依赖：
 
