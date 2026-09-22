@@ -46,6 +46,28 @@ def fetch_account_posts(sec_uid: str, count: int = 50,
     return data.get("data", [])
 
 
+class LikesUnavailableError(RuntimeError):
+    """用户点赞列表不可用：未公开（无权限）或平台拒绝返回。"""
+
+
+def fetch_user_likes(sec_uid: str, count: int = 50) -> list[dict]:
+    """按用户采集其点赞过的视频列表。
+
+    点赞列表属隐私数据：用户未公开或平台拒绝时，下游一般返回错误信息
+    或空数据，统一转成 LikesUnavailableError，由接口层给出明确报错。
+    """
+    # TODO: 对照 TikTokDownloader /docs 确认点赞采集的实际路径与参数
+    data = _get("/douyin/like", sec_uid=sec_uid, count=count)
+    err = data.get("message") or data.get("error")
+    if err:
+        raise LikesUnavailableError(f"无法采集该用户的点赞列表：{err}")
+    items = data.get("data") or []
+    if not items:
+        raise LikesUnavailableError(
+            "未采集到点赞视频：该用户的点赞列表可能未公开（无权限访问），或暂无点赞内容")
+    return items
+
+
 def search_videos(keyword: str, count: int = 30) -> list[dict]:
     """关键词搜索采集。"""
     data = _get("/douyin/search", keyword=keyword, count=count, type="video")

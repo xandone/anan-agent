@@ -6,6 +6,7 @@ import { api } from '@/api/client'
 const loadingKey = ref('')
 const hotForm = reactive({ board: '热榜', limit: 50 })
 const accountForm = reactive({ sec_uid: '', count: 50, min_digg: 0 })
+const likesForm = reactive({ sec_uid: '', count: 50 })
 const manualForm = reactive({ aweme_id: '' })
 
 async function submit(key, path, form, label) {
@@ -27,11 +28,11 @@ const boards = ['热榜', '娱乐榜', '社会榜', '挑战榜']
   <div>
     <header class="page-head rise">
       <h1>采集任务</h1>
-      <p>三种方式把抖音内容送进流水线：蹭热点、盯达人、或者精确到一条视频。</p>
+      <p>四种方式把抖音内容送进流水线：蹭热点、盯达人、采点赞，或者精确到一条视频。</p>
     </header>
 
     <a-row :gutter="[20, 20]">
-      <a-col :xs="24" :md="8">
+      <a-col :xs="24" :md="12" :xl="6">
         <div class="collect-card lift rise rise-1">
           <div class="card-glow" style="--glow: var(--hot)" />
           <h3><span class="mark" style="color: var(--hot)">♨</span> 热榜采集</h3>
@@ -52,7 +53,7 @@ const boards = ['热榜', '娱乐榜', '社会榜', '挑战榜']
         </div>
       </a-col>
 
-      <a-col :xs="24" :md="8">
+      <a-col :xs="24" :md="12" :xl="6">
         <div class="collect-card lift rise rise-2">
           <div class="card-glow" style="--glow: var(--neon)" />
           <h3><span class="mark" style="color: var(--neon)">◎</span> 达人采集</h3>
@@ -75,8 +76,28 @@ const boards = ['热榜', '娱乐榜', '社会榜', '挑战榜']
         </div>
       </a-col>
 
-      <a-col :xs="24" :md="8">
+      <a-col :xs="24" :md="12" :xl="6">
         <div class="collect-card lift rise rise-3">
+          <div class="card-glow" style="--glow: #ffd166" />
+          <h3><span class="mark" style="color: #ffd166">♥</span> 点赞采集</h3>
+          <p class="desc">采某用户点赞过的视频。对方点赞列表未公开时会直接报错提示。</p>
+          <a-form layout="vertical">
+            <a-form-item label="用户 sec_uid">
+              <a-input v-model:value="likesForm.sec_uid" placeholder="主页链接中的 sec_uid" />
+            </a-form-item>
+            <a-form-item label="数量">
+              <a-input-number v-model:value="likesForm.count" :min="1" :max="200" style="width: 100%" />
+            </a-form-item>
+            <a-button type="primary" block :loading="loadingKey === 'likes'"
+              @click="submit('likes', 'likes', likesForm, '点赞采集')">
+              开始采集
+            </a-button>
+          </a-form>
+        </div>
+      </a-col>
+
+      <a-col :xs="24" :md="12" :xl="6">
+        <div class="collect-card lift rise rise-4">
           <div class="card-glow" style="--glow: #b18cff" />
           <h3><span class="mark" style="color: #b18cff">✦</span> 单个视频</h3>
           <p class="desc">精确投喂。适合先拿一条视频验证整条流水线。</p>

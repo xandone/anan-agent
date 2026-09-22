@@ -37,9 +37,9 @@ class Video(Base):
     share_count: Mapped[int] = mapped_column(BigInteger, default=0, comment="分享数")
     publish_time: Mapped[datetime | None] = mapped_column(DateTime, comment="发布时间")
 
-    # 来源任务：hot（热榜）/ account（达人）/ search（关键词）/ manual（手动）
+    # 来源任务：hot（热榜）/ account（达人）/ like（用户点赞）/ search（关键词）/ manual（手动）
     source: Mapped[str] = mapped_column(String(32), default="manual",
-                                        comment="采集来源：hot热榜/account达人/search搜索/manual手动")
+                                        comment="采集来源：hot热榜/account达人/like用户点赞/search搜索/manual手动")
 
     local_path: Mapped[str | None] = mapped_column(String(512), comment="本地视频文件路径")
     status: Mapped[VideoStatus] = mapped_column(

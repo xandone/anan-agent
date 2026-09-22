@@ -169,3 +169,20 @@ def collect_account(db: Session, sec_uid: str, count: int = 50,
         video = register_video(db, aweme_id, item, source="account")
         ids.append(video.id)
     return ids
+
+
+def collect_likes(db: Session, sec_uid: str, count: int = 50) -> list[int]:
+    """点赞采集入口：登记某用户点赞过的视频。
+
+    点赞列表不可用（无权限/无数据）时由 douyin.fetch_user_likes
+    抛出 LikesUnavailableError，直接向上传播给接口层。
+    """
+    items = douyin.fetch_user_likes(sec_uid, count=count)
+    ids = []
+    for item in items:
+        aweme_id = str(item.get("aweme_id") or item.get("id") or "")
+        if not aweme_id:
+            continue
+        video = register_video(db, aweme_id, item, source="like")
+        ids.append(video.id)
+    return ids
