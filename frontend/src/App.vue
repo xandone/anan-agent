@@ -30,6 +30,7 @@ const themeConfig = computed(() => {
 })
 
 const navItems = [
+  { path: '/dashboard', label: '数据看板', icon: '◔' },
   { path: '/collect', label: '采集任务', icon: '⬇' },
   { path: '/videos', label: '视频库', icon: '▤' },
   { path: '/categories', label: '智能体', icon: '◈' },

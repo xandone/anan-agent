@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, categories, chat, collect, config, conversations, videos
+from app.api import auth, categories, chat, collect, config, conversations, dashboard, videos
 from app.core.database import init_db
 from app.core.security import get_current_user
 
@@ -35,6 +35,7 @@ app.include_router(categories.router, dependencies=_auth)
 app.include_router(chat.router, dependencies=_auth)
 app.include_router(conversations.router, dependencies=_auth)
 app.include_router(config.router, dependencies=_auth)
+app.include_router(dashboard.router, dependencies=_auth)
 
 
 @app.get("/api/health")
