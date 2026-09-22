@@ -10,6 +10,7 @@ const form = reactive({ username: '', password: '' })
 const loading = ref(false)
 const errorMsg = ref('')
 const shaking = ref(false)
+const showPassword = ref(false)
 
 async function submit() {
   if (!form.username || !form.password) {
@@ -46,11 +47,33 @@ function shake() {
 
       <label class="field">
         <span>用户名</span>
-        <input v-model.trim="form.username" autocomplete="username" placeholder="admin" autofocus />
+        <input v-model.trim="form.username" autocomplete="username" placeholder="用户名" autofocus />
       </label>
       <label class="field">
         <span>密码</span>
-        <input v-model="form.password" type="password" autocomplete="current-password" placeholder="••••••" />
+        <div class="password-wrap">
+          <input
+            v-model="form.password"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="current-password"
+            placeholder="密码"
+          />
+          <button
+            type="button"
+            class="toggle-pwd"
+            :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+            @click="showPassword = !showPassword"
+          >
+            <svg v-if="showPassword" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+              <line x1="1" y1="1" x2="23" y2="23" />
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        </div>
       </label>
 
       <p v-if="errorMsg" class="error">{{ errorMsg }}</p>
@@ -132,6 +155,42 @@ function shake() {
   margin: -6px 0 14px;
   font-size: 12.5px;
   color: var(--hot);
+}
+
+// 密码可见性切换
+.password-wrap {
+  position: relative;
+
+  input {
+    padding-right: 42px;
+  }
+
+  .toggle-pwd {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: color 0.2s;
+
+    &:hover {
+      color: var(--text);
+    }
+
+    svg {
+      width: 17px;
+      height: 17px;
+    }
+  }
 }
 
 .submit {
