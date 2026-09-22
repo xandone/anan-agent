@@ -156,10 +156,10 @@ const activeIndex = computed(() =>
 .nav-indicator {
   position: absolute;
   left: 0;
-  top: calc(var(--active) * 44px);
+  // 每项占位 = 项高 44px + 间距 4px，指示条高 36px 在项内垂直居中偏移 4px
+  top: calc(var(--active) * 48px + 4px);
   width: 3px;
   height: 36px;
-  margin-top: 2px;
   border-radius: 2px;
   background: linear-gradient(180deg, var(--neon), var(--hot));
   transition: top 0.35s var(--ease-out);

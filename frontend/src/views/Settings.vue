@@ -40,6 +40,7 @@ const groups = [
       { key: 'llm_api_key', label: 'LLM API Key' },
       { key: 'embedding_api_url', label: 'Embedding API 地址' },
       { key: 'embedding_model', label: 'Embedding 模型' },
+      { key: 'embedding_api_key', label: 'Embedding API Key' },
     ],
   },
 ]

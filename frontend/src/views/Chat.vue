@@ -196,7 +196,7 @@ async function streamAnswer(question) {
 // ---------- 输入框自适应高度 ----------
 
 const composerInput = ref(null)
-const COMPOSER_MAX_HEIGHT = 160
+const COMPOSER_MAX_HEIGHT = 240
 
 function autoResize() {
   const el = composerInput.value
@@ -592,13 +592,13 @@ onMounted(async () => {
 
   // 中间栏拉宽后，消息内容保持可读宽度并居中
   > * {
-    max-width: 760px;
+    max-width: 960px;
     margin-left: auto;
     margin-right: auto;
   }
 
   .msg {
-    max-width: 760px;
+    max-width: 960px;
     margin-left: auto;
     margin-right: auto;
 
@@ -836,10 +836,10 @@ onMounted(async () => {
 // 输入条：与消息流同宽居中
 .composer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 10px;
   width: 100%;
-  max-width: 760px;
+  max-width: 960px;
   margin: 12px auto 0;
   padding: 12px;
   background: var(--panel);
@@ -862,10 +862,11 @@ onMounted(async () => {
   color: var(--text);
   font-size: 14px;
   line-height: 1.6;
-  // 上下各 7px 内边距：单行时与右侧发送按钮等高，文字视觉居中
   padding: 7px 0;
   font-family: var(--font-body);
-  max-height: 160px;
+  // 默认约 3 行高，最长到 240px（约 9 行）后内部滚动
+  min-height: 86px;
+  max-height: 240px;
   overflow-y: auto;
 
   &::placeholder { color: var(--text-3); }
