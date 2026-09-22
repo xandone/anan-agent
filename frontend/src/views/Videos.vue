@@ -1,6 +1,6 @@
 <script setup>
 import { message } from 'ant-design-vue'
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { api } from '@/api/client'
 
 const videos = ref([])
@@ -21,6 +21,20 @@ const stageCounts = ref({})
 const failedCount = ref(0)
 const ocrLoading = ref(new Set())
 const batchLoading = ref(false)
+
+// 表格体滚动高度：卡片内剩余空间减去表头与分页（页面整体不滚动）
+const tableBox = ref(null)
+const tableY = ref(300)
+let resizeObs
+
+function measureTable() {
+  const box = tableBox.value
+  if (!box) return
+  const thead = box.querySelector('.ant-table-thead')
+  const pag = box.querySelector('.ant-pagination')
+  const extra = (thead?.offsetHeight ?? 55) + (pag?.offsetHeight ?? 32) + 28
+  tableY.value = Math.max(box.clientHeight - extra, 160)
+}
 
 const statusColor = {
   pending: '', downloaded: 'processing',
@@ -53,6 +67,17 @@ async function loadStageCounts() {
 function filterByStage(key) {
   filters.status = filters.status === key ? undefined : key
   filters.page = 1
+  load()
+}
+
+// 分页/每页条数变化：条数变化时回到第 1 页，避免页码越界出现空页
+function onPageChange(p) {
+  if (p.pageSize !== filters.size) {
+    filters.size = p.pageSize
+    filters.page = 1
+  } else {
+    filters.page = p.current
+  }
   load()
 }
 
@@ -90,7 +115,12 @@ onMounted(async () => {
   categories.value = await api.get('/categories')
   load()
   loadStageCounts()
+  nextTick(measureTable)
+  resizeObs = new ResizeObserver(() => nextTick(measureTable))
+  if (tableBox.value) resizeObs.observe(tableBox.value)
 })
+
+onBeforeUnmount(() => resizeObs?.disconnect())
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 70 },
@@ -105,7 +135,7 @@ const columns = [
 </script>
 
 <template>
-  <div>
+  <div class="videos-page">
     <!-- 流水线传送带 -->
     <div class="pipeline rise">
       <div
@@ -135,7 +165,7 @@ const columns = [
       </div>
     </div>
 
-    <a-card class="rise rise-1" :bordered="false">
+    <a-card class="rise rise-1 table-card" :bordered="false">
       <template #title>视频库</template>
       <template #extra>
         <a-space>
@@ -159,14 +189,26 @@ const columns = [
         </a-space>
       </template>
 
-      <a-table
-        :columns="columns"
-        :data-source="videos"
-        :loading="loading"
-        row-key="id"
-        :pagination="{ current: filters.page, pageSize: filters.size, total }"
-        @change="(p) => { filters.page = p.current; load() }"
-      >
+      <div ref="tableBox" class="table-box">
+        <a-table
+          :columns="columns"
+          :data-source="videos"
+          :loading="loading"
+          row-key="id"
+          :scroll="{ y: tableY }"
+          :pagination="{
+            current: filters.page,
+            pageSize: filters.size,
+            total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (t) => `共 ${t} 条`,
+            locale: { items_per_page: '条/页', jump_to: '前往', page: '页' },
+            buildOptionText: (opt) => `${opt.value}条/页`,
+          }"
+          @change="(p) => onPageChange(p)"
+        >
         <template #bodyCell="{ column, record }">
           <template v-if="column.dataIndex === 'status'">
             <a-tag :color="statusColor[record.status]">{{ record.status }}</a-tag>
@@ -200,17 +242,87 @@ const columns = [
             <router-link to="/collect">去采集任务页开始下载 →</router-link>
           </div>
         </template>
-      </a-table>
+        </a-table>
+      </div>
     </a-card>
   </div>
 </template>
 
 <style lang="scss" scoped>
+// 页面撑满视口：只有表格体滚动，传送带和卡片头固定
+.videos-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px); // 减去 .stage 上下各 32px 内边距
+  overflow: hidden;
+
+  @media (max-width: 768px) {
+    height: calc(100vh - 40px); // 移动端内边距 20px × 2
+  }
+}
+
+.table-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  :deep(.ant-card-head) {
+    flex-shrink: 0;
+  }
+
+  :deep(.ant-card-body) {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.table-box {
+  flex: 1;
+  min-height: 0;
+
+  // 打通 antd 表格内部层级，让分页器沉底（而不是紧跟在表格下面）
+  :deep(.ant-table-wrapper),
+  :deep(.ant-spin-nested-loading),
+  :deep(.ant-spin-container) {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  :deep(.ant-table) {
+    flex: 1;
+    min-height: 0;
+  }
+
+  :deep(.ant-pagination) {
+    margin-top: auto;
+    padding-top: 16px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  // 每页条数选择器：默认宽度太窄，"100 条/页"会被裁掉
+  // （下拉框宽度跟随触发器，撑开触发器即可同时解决两处）
+  :deep(.ant-pagination-options-size-changer) {
+    min-width: 106px;
+  }
+
+  :deep(.ant-pagination-options-quick-jumper) {
+    // 防止一行放不下时被挤出可视区
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
 // ---------- 流水线传送带 ----------
 .pipeline {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
   gap: 0;
   margin-bottom: 24px;
   padding: 18px 24px;

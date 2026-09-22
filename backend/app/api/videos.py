@@ -27,7 +27,7 @@ def list_videos(
     if source:
         q = q.filter(Video.source == source)
     total = q.count()
-    items = (q.order_by(Video.id.desc())
+    items = (q.order_by(Video.id.asc())
              .offset((page - 1) * size).limit(size).all())
     return {
         "total": total,
