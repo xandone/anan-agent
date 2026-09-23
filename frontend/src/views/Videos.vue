@@ -134,7 +134,7 @@ const columns = [
   { title: '状态', dataIndex: 'status', width: 110 },
   { title: '类别', dataIndex: 'category_id', width: 120 },
   { title: '置信度', dataIndex: 'confidence', width: 90 },
-  { title: '操作', key: 'action', width: 170 },
+  { title: '操作', key: 'action', width: 200 },
 ]
 </script>
 
