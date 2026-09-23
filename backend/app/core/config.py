@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     data_dir: str = "./data"
     top_comments: int = 20
     classify_confidence_threshold: float = 0.7
+    retrieval_max_distance: float = 0.45  # RAG 检索余弦距离上限，超过视为无关语料不注入
 
     # Auth
     secret_key: str = "anan-agent-dev-secret-please-change"

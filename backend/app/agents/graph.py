@@ -10,9 +10,20 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.clients import embedding, llm
+from app.core.config import get_settings
 from app.models import Category, Corpus
 
 TOP_K = 8
+
+CONTEXT_RULES = """以下是知识库中与本问题最相关的语料。
+回答规则（按优先级）：
+1. 语料能直接回答用户问题时，直接引用语料原文作答，保持原汁原味——不要改写、不要扩写，也不要加寒暄和解释；
+2. 语料只能部分覆盖时，先引用相关原文，再按你的人格风格简要补充；
+3. 语料与问题无关时，说明知识库暂无相关内容，再按人格风格自由回答。
+回答统一使用 Markdown 格式。
+
+参考语料：
+{contexts}"""
 
 
 class AgentState(TypedDict):
@@ -36,14 +47,8 @@ def retrieve(state: AgentState, db: Session) -> AgentState:
     if not state["category"]:
         state["contexts"] = []
         return state
-    vec = embedding.embed_one(state["question"])
-    stmt = (
-        select(Corpus)
-        .where(Corpus.category_id == state["category"]["id"])
-        .order_by(Corpus.embedding.cosine_distance(vec))
-        .limit(TOP_K)
-    )
-    state["contexts"] = [c.content for c in db.scalars(stmt).all()]
+    state["contexts"] = retrieve_contexts(db, state["category"]["id"],
+                                          state["question"])
     return state
 
 
@@ -58,8 +63,8 @@ def generate(state: AgentState, db: Session) -> AgentState:
     context_text = "\n---\n".join(state["contexts"]) or "（暂无相关语料）"
     messages = [
         {"role": "system", "content": system},
-        {"role": "user", "content":
-            f"参考语料：\n{context_text}\n\n用户问题：{state['question']}"},
+        {"role": "system", "content": CONTEXT_RULES.format(contexts=context_text)},
+        {"role": "user", "content": state["question"]},
     ]
     state["answer"] = llm.chat(messages)
     return state
@@ -103,14 +108,21 @@ def get_category(db: Session, slug: str) -> dict | None:
 
 
 def retrieve_contexts(db: Session, category_id: int, question: str) -> list[str]:
+    """类别内向量检索 Top-K，过滤掉相似度不足的语料。
+
+    余弦距离超过阈值（默认 0.45）视为无关——宁可不注入，
+    也不让模型拿"挨边但无关"的语料强行引用。
+    """
     vec = embedding.embed_one(question)
+    dist = Corpus.embedding.cosine_distance(vec).label("d")
     stmt = (
-        select(Corpus)
+        select(Corpus.content, dist)
         .where(Corpus.category_id == category_id)
-        .order_by(Corpus.embedding.cosine_distance(vec))
+        .order_by(dist)
         .limit(TOP_K)
     )
-    return [c.content for c in db.scalars(stmt).all()]
+    max_d = get_settings().retrieval_max_distance
+    return [content for content, d in db.execute(stmt) if d <= max_d]
 
 
 def build_messages(category: dict, contexts: list[str],
@@ -123,8 +135,7 @@ def build_messages(category: dict, contexts: list[str],
     context_text = "\n---\n".join(contexts) or "（暂无相关语料）"
     messages = [
         {"role": "system", "content": system},
-        {"role": "system",
-         "content": f"回答统一使用 Markdown 格式。以下是可参考的同类语料：\n{context_text}"},
+        {"role": "system", "content": CONTEXT_RULES.format(contexts=context_text)},
     ]
     messages += [{"role": m.role, "content": m.content} for m in history]
     messages.append({"role": "user", "content": question})
