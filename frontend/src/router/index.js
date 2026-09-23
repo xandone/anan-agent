@@ -3,7 +3,7 @@ import { token } from '@/composables/auth'
 
 const routes = [
   { path: '/login', component: () => import('@/views/Login.vue'), meta: { public: true } },
-  { path: '/', redirect: '/chat' },
+  { path: '/', redirect: '/dashboard' },
   { path: '/dashboard', component: () => import('@/views/Dashboard.vue') },
   { path: '/collect', component: () => import('@/views/Collect.vue') },
   { path: '/videos', component: () => import('@/views/Videos.vue') },
