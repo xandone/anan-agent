@@ -26,7 +26,20 @@ def init_db() -> None:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     from app import models  # noqa: F401  确保模型已注册
     Base.metadata.create_all(engine)
+    _ensure_vector_index()
     _seed_admin()
+
+
+def _ensure_vector_index() -> None:
+    """corpus.embedding 的 HNSW 近似索引：create_all 建不了，用原生 DDL 补齐。
+
+    幂等（IF NOT EXISTS），换库/重建后启动自动恢复。
+    不用 CONCURRENTLY：它在事务里不可用，且启动时建索引无并发写入。
+    """
+    with engine.begin() as conn:
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_corpus_embedding "
+            "ON corpus USING hnsw (embedding vector_cosine_ops)"))
 
 
 def _seed_admin() -> None:
