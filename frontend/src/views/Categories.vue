@@ -1,6 +1,6 @@
 <script setup>
 import { message } from 'ant-design-vue'
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { api } from '@/api/client'
 
 const categories = ref([])
@@ -8,6 +8,22 @@ const modalOpen = ref(false)
 const editing = ref(null)
 const saving = ref(false)
 const form = reactive({ name: '', slug: '', description: '', system_prompt: '', enabled: true })
+
+const formRef = ref()
+const rules = {
+  name: [{ required: true, whitespace: true, message: '请填写名称', trigger: 'blur' }],
+  slug: [
+    { required: true, whitespace: true, message: '请填写 slug', trigger: 'blur' },
+    { pattern: /^[a-z0-9][a-z0-9_-]*$/, message: 'slug 只能是小写字母、数字、- 和 _，且以字母或数字开头', trigger: 'blur' },
+  ],
+}
+
+// 后端 422 的 detail 是数组，统一提取成可读文本
+function errText(e, fallback) {
+  const d = e?.detail
+  if (Array.isArray(d)) return d.map((x) => x.msg).filter(Boolean).join('；') || fallback
+  return d || fallback
+}
 
 // 每个人格卡片的标识色：10 色按色环均匀分布，互不撞色
 const hues = [
@@ -32,9 +48,17 @@ function openModal(cat) {
   editing.value = cat
   Object.assign(form, cat || { name: '', slug: '', description: '', system_prompt: '', enabled: true })
   modalOpen.value = true
+  nextTick(() => formRef.value?.clearValidate())
 }
 
 async function save() {
+  try {
+    await formRef.value.validate()
+  } catch {
+    return // 校验未通过，antd 已在表单项下标红提示
+  }
+  form.name = form.name.trim()
+  form.slug = form.slug.trim()
   saving.value = true
   try {
     if (editing.value) await api.put(`/categories/${editing.value.id}`, form)
@@ -43,9 +67,47 @@ async function save() {
     modalOpen.value = false
     load()
   } catch (e) {
-    message.error(e.detail || '保存失败')
+    message.error(errText(e, '保存失败'))
   } finally {
     saving.value = false
+  }
+}
+
+async function remove(cat) {
+  try {
+    await api.delete(`/categories/${cat.id}`)
+    message.success(`已删除「${cat.name}」`)
+    modalOpen.value = false
+    load()
+  } catch (e) {
+    message.error(errText(e, '删除失败'))
+  }
+}
+
+const generating = ref(false)
+
+async function generate() {
+  const name = form.name.trim()
+  if (!name) {
+    message.warning('请先填写名称')
+    formRef.value?.validate(['name']).catch(() => {})
+    return
+  }
+  generating.value = true
+  try {
+    const draft = await api.post('/categories/ai-draft', { name }, { timeout: 90000 })
+    if (!editing.value) {
+      // 编辑模式下 slug 不可改，只填描述和人格 Prompt
+      if (draft.slug) form.slug = draft.slug
+    }
+    if (draft.description) form.description = draft.description
+    if (draft.system_prompt) form.system_prompt = draft.system_prompt
+    formRef.value?.clearValidate()
+    message.success((draft.slug || editing.value) ? '已生成，可按需调整' : '已生成，slug 请手动填写')
+  } catch (e) {
+    message.error(errText(e, '生成失败，请重试'))
+  } finally {
+    generating.value = false
   }
 }
 
@@ -78,6 +140,18 @@ onMounted(load)
           <div class="persona-stats">
             <span><b class="num">{{ c.video_count }}</b> 视频</span>
             <span><b class="num">{{ c.corpus_count }}</b> 语料</span>
+            <span class="actions" @click.stop>
+              <a class="act" @click="openModal(c)">编辑</a>
+              <a-popconfirm
+                title="删除该智能体？"
+                :description="`其 ${c.corpus_count} 条语料将一并删除，关联视频归为未分类。`"
+                ok-text="删除"
+                cancel-text="取消"
+                @confirm="remove(c)"
+              >
+                <a class="act danger">删除</a>
+              </a-popconfirm>
+            </span>
             <router-link class="try" :to="{ path: '/chat', query: { agent: c.slug } }" @click.stop>对话 →</router-link>
           </div>
         </div>
@@ -98,19 +172,25 @@ onMounted(load)
       cancel-text="取消"
       @ok="save"
     >
-      <a-form layout="vertical" style="margin-top: 16px">
+      <a-form ref="formRef" :model="form" :rules="rules" layout="vertical" style="margin-top: 16px">
         <a-row :gutter="16">
           <a-col :span="12">
-            <a-form-item label="名称" required>
+            <a-form-item label="名称" name="name" required>
               <a-input v-model:value="form.name" placeholder="如：诗歌智能体" />
             </a-form-item>
           </a-col>
           <a-col :span="12">
-            <a-form-item label="slug（对话路由用）" required>
+            <a-form-item label="slug（对话路由用）" name="slug" required>
               <a-input v-model:value="form.slug" :disabled="!!editing" placeholder="如：poem" />
             </a-form-item>
           </a-col>
         </a-row>
+        <a-form-item class="gen-row">
+          <a-button size="small" ghost type="primary" :loading="generating" @click="generate">
+            ✨ AI 智能生成
+          </a-button>
+          <span class="gen-hint">{{ editing ? '根据名称重新生成类别定义和人格 Prompt' : '根据名称自动生成 slug、类别定义和人格 Prompt' }}</span>
+        </a-form-item>
         <a-form-item label="类别定义（供 LLM 打标判断）">
           <a-textarea v-model:value="form.description" :rows="3"
             placeholder="什么样的内容算这一类？写得越清楚，分类越准。" />
@@ -214,6 +294,31 @@ onMounted(load)
     margin-right: 3px;
   }
 
+  .actions {
+    display: flex;
+    gap: 10px;
+    opacity: 0;
+    transition: opacity 0.25s;
+
+    .act {
+      color: var(--text-2);
+      text-decoration: none;
+      cursor: pointer;
+
+      &:hover {
+        color: var(--text);
+      }
+
+      &.danger:hover {
+        color: #ff4d4f;
+      }
+    }
+  }
+
+  .persona:hover & .actions {
+    opacity: 1;
+  }
+
   .try {
     margin-left: auto;
     color: var(--hue);
@@ -227,6 +332,21 @@ onMounted(load)
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+.gen-row {
+  margin-top: -10px;
+
+  :deep(.ant-form-item-control-input-content) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+.gen-hint {
+  font-size: 12px;
+  color: var(--text-3);
 }
 
 // 新增卡片：虚线占位
