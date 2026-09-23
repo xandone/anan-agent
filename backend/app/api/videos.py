@@ -1,13 +1,37 @@
 """视频库路由：列表、详情、人工改标、OCR 兜底。"""
+from pathlib import Path
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.models import Category, Video, VideoStatus
 from app.pipeline.orchestrator import run_ocr
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
+
+
+def _file_url(local_path: str | None) -> str | None:
+    """本地视频路径 -> /files 静态目录下的可访问 URL。
+
+    local_path 可能是相对路径（data/videos/x.mp4，历史数据）
+    或绝对路径（/data/videos/x.mp4，容器内下载器返回）。
+    """
+    if not local_path:
+        return None
+    p = Path(local_path)
+    if p.is_absolute():
+        try:
+            rel = p.relative_to(get_settings().data_path)
+        except ValueError:
+            return None
+    else:
+        rel = Path(local_path.lstrip("./"))
+        if rel.parts and rel.parts[0] == "data":
+            rel = Path(*rel.parts[1:])
+    return "/files/" + rel.as_posix()
 
 
 @router.get("")
@@ -36,7 +60,7 @@ def list_videos(
             "author_name": v.author_name, "digg_count": v.digg_count,
             "status": v.status.value, "category_id": v.category_id,
             "confidence": v.classify_confidence, "source": v.source,
-            "error": v.error,
+            "error": v.error, "file_url": _file_url(v.local_path),
         } for v in items],
     }
 

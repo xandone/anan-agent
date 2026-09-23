@@ -83,6 +83,10 @@ function onPageChange(p) {
 
 const isAsrFailure = (r) => r.status === 'failed' && (r.error || '').startsWith('step_asr')
 
+function openVideo(record) {
+  window.open(record.file_url, '_blank')
+}
+
 async function runOcr(record) {
   ocrLoading.value.add(record.id)
   try {
@@ -130,7 +134,7 @@ const columns = [
   { title: '状态', dataIndex: 'status', width: 110 },
   { title: '类别', dataIndex: 'category_id', width: 120 },
   { title: '置信度', dataIndex: 'confidence', width: 90 },
-  { title: '操作', key: 'action', width: 110 },
+  { title: '操作', key: 'action', width: 170 },
 ]
 </script>
 
@@ -223,17 +227,22 @@ const columns = [
             <span class="num">{{ record.confidence != null ? record.confidence.toFixed(2) : '—' }}</span>
           </template>
           <template v-else-if="column.key === 'action'">
-            <a-tooltip v-if="isAsrFailure(record)" title="语音转写失败，用 OCR 提取画面字幕兜底">
-              <a-button
-                size="small"
-                danger
-                :loading="ocrLoading.has(record.id)"
-                @click="runOcr(record)"
-              >
-                OCR 补字幕
-              </a-button>
-            </a-tooltip>
-            <span v-else class="action-none">—</span>
+            <a-space :size="6">
+              <a-tooltip v-if="record.file_url" title="打开视频文件">
+                <a-button size="small" @click="openVideo(record)">▶ 播放</a-button>
+              </a-tooltip>
+              <a-tooltip v-if="isAsrFailure(record)" title="语音转写失败，用 OCR 提取画面字幕兜底">
+                <a-button
+                  size="small"
+                  danger
+                  :loading="ocrLoading.has(record.id)"
+                  @click="runOcr(record)"
+                >
+                  OCR 补字幕
+                </a-button>
+              </a-tooltip>
+              <span v-if="!record.file_url && !isAsrFailure(record)" class="action-none">—</span>
+            </a-space>
           </template>
         </template>
         <template #emptyText>

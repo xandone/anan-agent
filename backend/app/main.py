@@ -2,8 +2,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api import auth, categories, chat, collect, config, conversations, dashboard, videos
+from app.core.config import get_settings
 from app.core.database import init_db
 from app.core.security import get_current_user
 
@@ -36,6 +38,11 @@ app.include_router(chat.router, dependencies=_auth)
 app.include_router(conversations.router, dependencies=_auth)
 app.include_router(config.router, dependencies=_auth)
 app.include_router(dashboard.router, dependencies=_auth)
+
+# 采集产物（下载的视频等）的文件访问：http://host:8000/files/videos/xxx.mp4
+# 注意：静态目录无鉴权，浏览器 <video> 播放也带不了 Bearer token。
+# 内网自用足够；若需鉴权，换成带 Depends(get_current_user) 的 FileResponse 接口。
+app.mount("/files", StaticFiles(directory=get_settings().data_path), name="files")
 
 
 @app.get("/api/health")

@@ -1,7 +1,7 @@
-# anan-agent 基础设施层：数据库 / OCR / 采集器
+# anan-agent 基础设施层：数据库 / OCR / 采集器 / 后端
 # 端口统一分配在 9000 段，与本机其他服务（如本地 PG 5432）隔离：
 #   9001 = postgres | 9002 = tiktok-downloader | 9003 = rapidocr
-# 后端、前端开发期在本地跑（见 README），生产环境再整体容器化。
+#   8000 = backend（生产容器化用；开发期仍建议本地跑，见 README）
 
 services:
   postgres:
@@ -36,9 +36,30 @@ services:
       - "9002:5555"                 # 宿主 9002 → 容器 5555，API 文档: http://localhost:9002/docs
     volumes:
       - tt-data:/app/Volume
+      - video-data:/data            # 下载的视频写进共享卷，后端容器读同一路径
     # 以 Web API 模式运行，后端通过 HTTP 调用
+    restart: unless-stopped
+
+  # 生产部署用：docker compose up -d backend（开发期本地 python run.py 即可，不必启动它）
+  backend:
+    build: ./backend
+    container_name: anan-backend
+    environment:
+      # 容器内覆盖 .env：地址指向 compose 内部服务名
+      DATABASE_URL: postgresql+psycopg2://postgres:123456@postgres:5432/anan_agent
+      DOUYIN_API_URL: http://tiktok-downloader:5555
+      OCR_API_URL: http://rapidocr:9003/ocr
+      DATA_DIR: /data               # 与下载器挂载点一致，视频路径两侧通用
+    ports:
+      - "8000:8000"
+    volumes:
+      - video-data:/data            # 与 tiktok-downloader 共享：它下载、它读取
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   pgdata:
   tt-data:
+  video-data:

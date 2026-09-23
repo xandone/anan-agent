@@ -14,6 +14,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': 'http://localhost:8000',
+      '/files': 'http://localhost:8000',   // 采集的视频文件（后端静态目录）
     },
   },
 })
